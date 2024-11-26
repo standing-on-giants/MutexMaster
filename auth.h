@@ -48,4 +48,23 @@ struct Allocation{
 	uint8_t delete;
 };
 
+char* formatHeading(char *text);
+
+// Function prototypes for the cases for member
+void viewBooksInLibrary(int client_socket);
+void viewCurrentIssues(int client_socket, struct Account *acc);
+void exitMemberPanel(int client_socket);
+
+// Function prototypes for the cases for admin
+void seeAllBooks(int client_socket);
+void seeAllocations(int client_socket);
+void addBook(int client_socket);
+void updateBookCopies(int client_socket);
+void deleteBook(int client_socket); 
+void allocateBook(int client_socket);
+void deallocateBook(int client_socket);
+void seeAllocationsForUser(int client_socket);
+void viewAllUsers(int client_socket);
+void exitAdminPanel(int client_socket);
+
 #endif

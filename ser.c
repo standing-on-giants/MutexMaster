@@ -67,7 +67,10 @@ char* formatHeading(char *text) {
 }
 
 
-void admin(int client_socket, struct Account *acc) { // admin operations
+
+
+void admin(int client_socket, struct Account *acc) {
+    // Admin operations
     char buffer[MAX_BUFFSIZE] = {0};
     char x[100];
     sprintf(x, "Welcome admin \"%s\"", acc->username);
@@ -78,466 +81,73 @@ void admin(int client_socket, struct Account *acc) { // admin operations
     while (1) {
         memset(buffer, '\0', sizeof(buffer));
         send(client_socket, "\nEnter choice:", MAX_BUFFSIZE, 0);
-        //printf("chabuuuk\n");
+
         int choice;
         recv(client_socket, &choice, sizeof(choice), 0);
         printf("Recvd choice %d\n", choice);
 
-        FILE *bookFile, *allocFile;
-        int fd;
-        struct Book book;
-        struct Allocation allocation;
-
         switch (choice) {
-            case 1: // See all books and available copies
-                bookFile = fopen(booksCol, "rb+");
-                if (bookFile == NULL) {
-                    send(client_socket, "Error opening book file.\n", strlen("Error opening book file.\n"), 0);
-                    continue;
-                }
-
-                fd = fileno(bookFile);
-                lock_file(fd, F_RDLCK); // Acquire read lock
-                fseek(bookFile, 0, SEEK_SET);
-
-                strcpy(buffer, "Books and available copies:\n");
-                while (fread(&book, sizeof(struct Book), 1, bookFile)) {
-                    if (book.delete == 0) {
-                        char temp[100];
-                        sprintf(temp, "Class ID: %s, Name: %s, Copies: %d\n", book.class_id, book.name, book.copies);
-                        strcat(buffer, temp);
-                    }
-                }
-                lock_file(fd, F_UNLCK); // Release lock
-                fclose(bookFile);
-
-                send(client_socket, buffer, MAX_BUFFSIZE, 0);
+            case 1:
+                seeAllBooks(client_socket);
                 break;
 
-            case 2: // See incumbent allocations
-                allocFile = fopen(allocList, "rb+");
-                if (allocFile == NULL) {
-                    send(client_socket, "Error opening allocation file.\n", MAX_BUFFSIZE, 0);
-                    continue;
-                }
-
-                fd = fileno(allocFile);
-                lock_file(fd, F_RDLCK); // Acquire read lock
-                fseek(allocFile, 0, SEEK_SET);
-
-                memset(buffer, '\0', sizeof(buffer));
-                strcpy(buffer, "Current allocations:\n");
-                while (fread(&allocation, sizeof(struct Allocation), 1, allocFile)) {
-                    if (allocation.delete == 0) {
-                        char temp[200];
-                        sprintf(temp, "Class ID: %s, Member Name: %s, Date of Issue: %s, Date of Return: %s\n",
-                                allocation.class_id, allocation.name, allocation.dateOfIssue, allocation.dateOfReturn);
-                        strcat(buffer, temp);
-                    }
-                }
-                lock_file(fd, F_UNLCK); // Release lock
-                fclose(allocFile);
-
-                send(client_socket, buffer, MAX_BUFFSIZE, 0);
+            case 2:
+                seeAllocations(client_socket);
                 break;
 
-            case 3: // Add book
-                send(client_socket, "Enter class ID: ", MAX_BUFFSIZE, 0);
-                recv(client_socket, book.class_id, sizeof(book.class_id), 0);
-
-                send(client_socket, "Enter book name: ", MAX_BUFFSIZE, 0);
-                recv(client_socket, book.name, sizeof(book.name), 0);
-
-                send(client_socket, "Enter number of copies: ", MAX_BUFFSIZE, 0);
-                recv(client_socket, &book.copies, sizeof(book.copies), 0);
-
-                book.delete = 0;
-
-                bookFile = fopen(booksCol, "rb+");
-                if (bookFile == NULL) {
-                    send(client_socket, "Error opening book file.\n", MAX_BUFFSIZE, 0);
-                    break;
-                }
-
-                fd = fileno(bookFile);
-                lock_file(fd, F_WRLCK); // Acquire write lock
-                struct Book bk;
-                int book_added = 0;
-                while (fread(&bk, sizeof(struct Book), 1, bookFile)) {
-                    if (bk.delete == 1) {
-                        fseek(bookFile, -sizeof(struct Book), SEEK_CUR);
-                        fwrite(&book, sizeof(struct Book), 1, bookFile);
-                        book_added = 1;
-                        break;
-                    }
-                }
-                if (!book_added) {
-                    fseek(bookFile, 0, SEEK_END);
-                    fwrite(&book, sizeof(struct Book), 1, bookFile);
-                }
-
-                lock_file(fd, F_UNLCK); // Release lock
-                fclose(bookFile);
-
-                send(client_socket, "Book added successfully.\n", MAX_BUFFSIZE, 0);
+            case 3:
+                addBook(client_socket);
                 break;
 
-            case 4: // Update copies of a particular book
-            {
-                char class_id[4] = {0};
-                int new_copies;
-
-                send(client_socket, "Enter class ID of the book to update: ", MAX_BUFFSIZE, 0);
-                recv(client_socket, class_id, sizeof(class_id), 0);
-
-                send(client_socket, "Enter the new number of copies: ", MAX_BUFFSIZE, 0);
-                recv(client_socket, &new_copies, sizeof(new_copies), 0);
-
-                bookFile = fopen(booksCol, "rb+");
-                if (bookFile == NULL) {
-                    send(client_socket, "Error opening book file.\n", MAX_BUFFSIZE, 0);
-                    break;
-                }
-
-                fd = fileno(bookFile);
-                lock_file(fd, F_WRLCK); // Acquire write lock
-
-                fseek(bookFile, 0, SEEK_SET);
-                int found = 0;
-                while (fread(&book, sizeof(struct Book), 1, bookFile)) {
-                    if (book.delete == 0 && strcmp(book.class_id, class_id) == 0) {
-                        found = 1;
-                        book.copies += new_copies;
-                        fseek(bookFile, -sizeof(struct Book), SEEK_CUR);
-                        fwrite(&book, sizeof(struct Book), 1, bookFile);
-                        break;
-                    }
-                }
-
-                lock_file(fd, F_UNLCK); // Release lock
-                fclose(bookFile);
-
-                if (found) {
-                    send(client_socket, "Book copies updated successfully.\n", MAX_BUFFSIZE, 0);
-                } else {
-                    send(client_socket, "Book not found.\n", MAX_BUFFSIZE, 0);
-                }
+            case 4:
+                updateBookCopies(client_socket);
                 break;
-            }
 
-            case 5: // Delete book (all copies)
-            {
-                char class_id[4] = {0};
+            case 5:
+                deleteBook(client_socket); 
 
-                send(client_socket, "Enter class ID of the book to delete: ", MAX_BUFFSIZE, 0);
-                recv(client_socket, class_id, sizeof(class_id), 0);
-
-                bookFile = fopen(booksCol, "rb+");
-                if (bookFile == NULL) {
-                    send(client_socket, "Error opening book file.\n", MAX_BUFFSIZE, 0);
-                    break;
-                }
-
-                fd = fileno(bookFile);
-                lock_file(fd, F_WRLCK); // Acquire write lock
-                fseek(bookFile, 0, SEEK_SET);
-
-                int found = 0;
-                while (fread(&book, sizeof(struct Book), 1, bookFile)) {
-                    if (strcmp(book.class_id, class_id) == 0 && book.delete == 0) {
-                        found = 1;
-                        book.delete = 1;
-                        fseek(bookFile, -sizeof(struct Book), SEEK_CUR);
-                        fwrite(&book, sizeof(struct Book), 1, bookFile);
-                        break;
-                    }
-                }
-
-                lock_file(fd, F_UNLCK); // Release lock
-                fclose(bookFile);
-
-                if (found) {
-                    send(client_socket, "Book deleted successfully.\n", MAX_BUFFSIZE, 0);
-                } else {
-                    send(client_socket, "Book not found.\n", MAX_BUFFSIZE, 0);
-                }
                 break;
-            }
 
-            case 6: // Allocate a book
-            {
-                char member_username[MAX_USERNAME_LENGTH];
-                char book_class_id[4];
-                int duration_days;
+            case 6:
+                allocateBook(client_socket);
 
-                // Receive member username
-                send(client_socket, "Enter member username: ", MAX_BUFFSIZE, 0);
-                recv(client_socket, member_username, sizeof(member_username), 0);
-
-                // Receive book class ID
-                send(client_socket, "Enter book class ID: ", MAX_BUFFSIZE, 0);
-                recv(client_socket, book_class_id, sizeof(book_class_id), 0);
-
-                // Receive allocation duration in days
-                send(client_socket, "Enter allocation duration (days): ", MAX_BUFFSIZE, 0);
-                recv(client_socket, &duration_days, sizeof(duration_days), 0);
-
-                // Open the members file to check if the user exists
-                FILE *membersFile = fopen(memAccs, "rb");
-                if (membersFile == NULL) {
-                    send(client_socket, "Error opening members file.\n", MAX_BUFFSIZE, 0);
-                    return;
-                }
-
-                struct Account member;
-                int user_found = 0;
-                while (fread(&member, sizeof(struct Account), 1, membersFile)) {
-                    if (strcmp(member.username, member_username) == 0) {
-                        user_found = 1;
-                        break;
-                    }
-                }
-                fclose(membersFile);
-
-                if (!user_found) {
-                    send(client_socket, "User not found.\n", MAX_BUFFSIZE, 0);
-                    break;
-                }
-
-                // Open the books file to check if the book is available
-                bookFile = fopen(booksCol, "rb+");
-                if (bookFile == NULL) {
-                    send(client_socket, "Error opening books file.\n", MAX_BUFFSIZE, 0);
-                    break;
-                }
-
-                fd = fileno(bookFile);
-                lock_file(fd, F_WRLCK); // Acquire write lock
-
-                int book_found = 0;
-                while (fread(&book, sizeof(struct Book), 1, bookFile)) {
-                    if (strcmp(book.class_id, book_class_id) == 0 && book.delete == 0) {
-                        book_found = 1;
-                        if (book.copies > 0) {
-                            book.copies--; // Decrease the number of available copies
-                            fseek(bookFile, -sizeof(struct Book), SEEK_CUR);
-                            fwrite(&book, sizeof(struct Book), 1, bookFile);
-                        } else {
-                            send(client_socket, "No copies available.\n", MAX_BUFFSIZE, 0);
-                            book_found = -1;
-                        }
-                        break;
-                    }
-                }
-
-                lock_file(fd, F_UNLCK); // Release lock
-                fclose(bookFile);
-
-                if (!book_found) {
-                    if (book_found == -1) {
-                        break; // No copies available
-                    }
-                    send(client_socket, "Book not found.\n", MAX_BUFFSIZE, 0);
-                    break;
-                }
-
-                // Proceed to add allocation record
-                allocFile = fopen(allocList, "rb+");
-                if (allocFile == NULL) {
-                    send(client_socket, "Error opening allocation file.\n", MAX_BUFFSIZE, 0);
-                    break;
-                }
-
-                fd = fileno(allocFile);
-                lock_file(fd, F_WRLCK); // Acquire write lock
-
-                // Fill allocation details
-                strcpy(allocation.name, member_username);
-                strcpy(allocation.class_id, book_class_id);
-                time_t tnow = time(NULL);
-                strcpy(allocation.dateOfIssue, ctime(&tnow)); printf("TI: %s\n", allocation.dateOfIssue);
-
-                struct tm *tm_info;
-                time_t raw_time = tnow + (duration_days * 24 * 60 * 60);
-                tm_info = localtime(&raw_time);
-                raw_time = mktime(tm_info);
-                strcpy(allocation.dateOfReturn, ctime(&raw_time)); printf("TI: %s\n", allocation.dateOfReturn);
-
-                allocation.delete = 0;
-
-                // Write to allocation file
-                fseek(allocFile, 0, SEEK_SET);
-                int alloc_write = 0;
-                struct Allocation temp_alloc;
-                while (fread(&temp_alloc, sizeof(struct Allocation), 1, allocFile)) {
-                    if (temp_alloc.delete == 1) {
-                        fseek(allocFile, -sizeof(struct Allocation), SEEK_CUR);
-                        fwrite(&allocation, sizeof(struct Allocation), 1, allocFile);
-                        alloc_write = 1;
-                        break;
-                    }
-                }
-                if (!alloc_write) {
-                    fseek(allocFile, 0, SEEK_END);
-                    fwrite(&allocation, sizeof(struct Allocation), 1, allocFile);
-                }
-
-                lock_file(fd, F_UNLCK); // Release lock
-                fclose(allocFile);
-
-                send(client_socket, "Book allocated successfully.\n", MAX_BUFFSIZE, 0);
                 break;
-            }
 
-            case 7: // Deallocate a book
-            {
-                char member_username[MAX_USERNAME_LENGTH];
-                char book_class_id[4];
-
-                send(client_socket, "Enter member username: ", MAX_BUFFSIZE, 0);
-                recv(client_socket, member_username, sizeof(member_username), 0);
-
-                send(client_socket, "Enter book class ID: ", MAX_BUFFSIZE, 0);
-                recv(client_socket, book_class_id, sizeof(book_class_id), 0);
-
-                allocFile = fopen(allocList, "rb+");
-                if (allocFile == NULL) {
-                    send(client_socket, "Error opening allocation file.\n", MAX_BUFFSIZE, 0);
-                    break;
-                }
-
-                fd = fileno(allocFile);
-                lock_file(fd, F_WRLCK); // Acquire write lock
-
-                int allocation_found = 0;
-                fseek(allocFile, 0, SEEK_SET);
-                while (fread(&allocation, sizeof(struct Allocation), 1, allocFile)) {
-                    if (allocation.delete == 0 && strcmp(allocation.name, member_username) == 0 && strcmp(allocation.class_id, book_class_id) == 0 ) {
-                        allocation_found = 1;
-                        allocation.delete = 1; // Mark allocation as deleted
-                        fseek(allocFile, -sizeof(struct Allocation), SEEK_CUR);
-                        fwrite(&allocation, sizeof(struct Allocation), 1, allocFile);
-                        break;
-                    }
-                }
-
-                lock_file(fd, F_UNLCK); // Release lock
-                fclose(allocFile);
-
-                if (!allocation_found) {
-                    send(client_socket, "Allocation not found.\n", MAX_BUFFSIZE, 0);
-                    break;
-                }
-
-                // Increment book copies
-                bookFile = fopen(booksCol, "rb+");
-                if (bookFile == NULL) {
-                    send(client_socket, "Error opening book file.\n", MAX_BUFFSIZE, 0);
-                    break;
-                }
-
-                fd = fileno(bookFile);
-                lock_file(fd, F_WRLCK); // Acquire write lock
-                fseek(bookFile, 0, SEEK_SET);
-
-                int book_updated = 0;
-                while (fread(&book, sizeof(struct Book), 1, bookFile)) {
-                    if (strcmp(book.class_id, book_class_id) == 0 && book.delete == 0) {
-                        book.copies++;
-                        fseek(bookFile, -sizeof(struct Book), SEEK_CUR);
-                        fwrite(&book, sizeof(struct Book), 1, bookFile);
-                        book_updated = 1;
-                        break;
-                    }
-                }
-
-                lock_file(fd, F_UNLCK); // Release lock
-                fclose(bookFile);
-
-                if (book_updated) {
-                    send(client_socket, "Book deallocated successfully.\n", MAX_BUFFSIZE, 0);
-                } else {
-                    send(client_socket, "Book not found for updating.\n", MAX_BUFFSIZE, 0);
-                }
+            case 7:
+                deallocateBook(client_socket);
                 break;
-            }
 
-            case 8: // See allocations to a particular user
-            {
-                char member_username[MAX_USERNAME_LENGTH];
+            case 8:
+                seeAllocationsForUser(client_socket);
 
-                send(client_socket, "Enter member username: ", MAX_BUFFSIZE, 0);
-                recv(client_socket, member_username, sizeof(member_username), 0);
-
-                allocFile = fopen(allocList, "rb+");
-                if (allocFile == NULL) {
-                    send(client_socket, "Error opening allocation file.\n", MAX_BUFFSIZE, 0);
-                    break;
-                }
-
-                fd = fileno(allocFile);
-                lock_file(fd, F_RDLCK); // Acquire read lock
-                fseek(allocFile, 0, SEEK_SET);
-
-                strcpy(buffer, "Allocations for user:\n");
-                int found = 0;
-                while (fread(&allocation, sizeof(struct Allocation), 1, allocFile)) {
-                    if (strcmp(allocation.name, member_username) == 0 && allocation.delete == 0) {
-                        found = 1;
-                        char temp[200];
-                        sprintf(temp, "Class ID: %s, Date of Issue: %s, Date of Return: %s\n",
-                                allocation.class_id, allocation.dateOfIssue, allocation.dateOfReturn);
-                        strcat(buffer, temp);
-                    }
-                }
-
-                lock_file(fd, F_UNLCK); // Release lock
-                fclose(allocFile);
-
-                if (found) {
-                    send(client_socket, buffer, MAX_BUFFSIZE, 0);
-                } else {
-                    send(client_socket, "No allocations found for this user.\n", MAX_BUFFSIZE, 0);
-                }
                 break;
-            }
 
-            case 9:{ // view all members
-                FILE * memFile=fopen(memAccs,"rb");
-                int fd=fileno(memFile);
-                lock_file(fd, F_RDLCK); // Acquiring read lock
-                fseek(memFile, 0, SEEK_SET);
-                memset(buffer, '\0', sizeof(buffer));
-                struct Account acc;
-                while(fread(&acc, sizeof(struct Account), 1, memFile)){
-                    char temp[110];
-                    sprintf(temp, "Username: %s, Date of joining: %s\n",acc.username, acc.joiningTime);
-                    strcat(buffer, temp);
-                }
-                lock_file(fd, F_UNLCK); // releasing read lock
-                fclose(memFile);
-                send(client_socket, buffer, MAX_BUFFSIZE,0);
-            
-            }break;
+            case 9:
+                viewAllUsers(client_socket);
+                break;
 
-            case 10: // Exit
+            case 10:
+                send(client_socket, "Exiting admin panel.\n", MAX_BUFFSIZE, 0);
                 return;
 
             default:
-                send(client_socket, "Invalid choice. Try again.\n", MAX_BUFFSIZE, 0);
+                send(client_socket, "Invalid choice.\n", MAX_BUFFSIZE, 0);
                 break;
         }
     }
 }
 
-void member(int client_socket, struct Account *acc) { //member operations
+
+
+void member(int client_socket, struct Account *acc) {
+    // Member operations
     char buffer[MAX_BUFFSIZE] = {0};
     char x[100];
     sprintf(x, "Welcome member \"%s\"", acc->username);
     strcpy(buffer, formatHeading(x));
     strcat(buffer, "\n\n1. View books in library.\n2. View current issues (allocations).\n3. Exit\n");
     send(client_socket, buffer, MAX_BUFFSIZE, 0);
-    
+
     while (1) {
         memset(buffer, '\0', sizeof(buffer));
         send(client_socket, "\nEnter choice: ", MAX_BUFFSIZE, 0);
@@ -545,65 +155,17 @@ void member(int client_socket, struct Account *acc) { //member operations
         int choice;
         recv(client_socket, &choice, sizeof(choice), 0);
 
-        FILE *bookFile, *allocFile;
-        int fd;
-        struct Book book;
-        struct Allocation allocation;
-
         switch (choice) {
-            case 1: // View books in library
-                bookFile = fopen(booksCol, "rb+");
-                if (bookFile == NULL) {
-                    send(client_socket, "Error opening book file.\n", strlen("Error opening book file.\n"), 0);
-                    continue;
-                }
-
-                fd = fileno(bookFile);
-                lock_file(fd, F_RDLCK); // Acquire read lock
-                fseek(bookFile, 0, SEEK_SET);
-
-                strcpy(buffer, "Books in library:\n");
-                while (fread(&book, sizeof(struct Book), 1, bookFile)) {
-                    if (book.delete == 0) {
-                        char temp[100];
-                        sprintf(temp, "Class ID: %s, Name: %s, Copies: %d\n", book.class_id, book.name, book.copies);
-                        strcat(buffer, temp);
-                    }
-                }
-                lock_file(fd, F_UNLCK); // Release lock
-                fclose(bookFile);
-
-                send(client_socket, buffer, MAX_BUFFSIZE, 0);
+            case 1:
+                viewBooksInLibrary(client_socket);
                 break;
 
-            case 2: // View current issues (allocations)
-                allocFile = fopen(allocList, "rb+");
-                if (allocFile == NULL) {
-                    send(client_socket, "Error opening allocation file.\n", strlen("Error opening allocation file.\n"), 0);
-                    continue;
-                }
-
-                fd = fileno(allocFile);
-                lock_file(fd, F_RDLCK); // Acquire read lock
-                fseek(allocFile, 0, SEEK_SET);
-
-                strcpy(buffer, "Your current allocations:\n");
-                while (fread(&allocation, sizeof(struct Allocation), 1, allocFile)) {
-                    if (allocation.delete == 0 && strcmp(allocation.name, acc->username) == 0) {
-                        char temp[200];
-                        sprintf(temp, "Class ID: %s, Date of Issue: %s, Date of Return: %s\n",
-                                allocation.class_id, allocation.dateOfIssue, allocation.dateOfReturn);
-                        strcat(buffer, temp);
-                    }
-                }
-                lock_file(fd, F_UNLCK); // Release lock
-                fclose(allocFile);
-
-                send(client_socket, buffer, MAX_BUFFSIZE, 0);
+            case 2:
+                viewCurrentIssues(client_socket, acc);
                 break;
 
-            case 3: // Exit
-                send(client_socket, "Exiting member panel.\n", strlen("Exiting member panel.\n"), 0);
+            case 3:
+                exitMemberPanel(client_socket);
                 return;
 
             default:
@@ -612,6 +174,7 @@ void member(int client_socket, struct Account *acc) { //member operations
         }
     }
 }
+
 
 
 int checkCredentials(const char *username, const char *password, enum AccountType type, struct Account * account) {// authentication

@@ -5,7 +5,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -I.
 
 # Source files
-SRCS_SERVER = ser.c
+SRCS_SERVER = ser.c mem.c adm.c
 SRCS_CLIENT = cli.c
 
 # Header files
