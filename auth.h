@@ -49,6 +49,7 @@ struct Allocation{
 };
 
 char* formatHeading(char *text);
+void format_time(time_t rawtime, char *buffer, size_t buffer_size);
 
 // Function prototypes for the cases for member
 void viewBooksInLibrary(int client_socket);
