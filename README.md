@@ -54,3 +54,7 @@ This creates an executable ```test``` that tests some functions common to both s
 - In the makefile, see the rule for make 'test'. Uncommenting **\$(TARGET_TEST_SERVER)** and **$(TARGET_TEST_CLIENT)** and then running ```make test``` will create corresponding test executables: ```test_server```and ```test_client```.
 3. These executables test the fucntions of server and client respectively.
 4. For the sake of demonstration we test 2 functions that perform CRUD operations on the server's part. This can be extended easily to all fucntions.
+5. To delete all test executables
+```
+make test
+``` 
