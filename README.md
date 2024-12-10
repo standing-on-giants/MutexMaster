@@ -56,5 +56,5 @@ This creates an executable ```test``` that tests some functions common to both s
 4. For the sake of demonstration we test 2 functions that perform CRUD operations on the server's part. This can be extended easily to all fucntions.
 5. To delete all test executables
 ```
-make test
+make cleant
 ``` 
