@@ -3,47 +3,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include "auth.h"
+#include "../auth.h"
+#include "cli.h"
 
-#define PORT 8080
-#define MAX_BUFFSIZE 1024
-#define MAX_USERNAME_LENGTH 50
-#define MAX_PASSWORD_LENGTH 50
-
-// Function to format a heading text with asterisks
-char* formatHeading(char *text) {
-    int textLength = strlen(text);
-    int totalWidth = 52;
-    int paddingLeft = (totalWidth - textLength - 2) / 2; // Padding for left side (2 extra for asterisks)
-    int paddingRight = totalWidth - paddingLeft - textLength - 2; // Padding for right side (ensures even padding)
-
-    // Allocate memory for the formatted string
-    char* formattedText = (char*)malloc((totalWidth * 3 + 1) * sizeof(char)); 
-    if (formattedText == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(1);
-    }
-
-    // Construct the formatted string
-    // Top border
-    memset(formattedText, '*', totalWidth);
-    formattedText[totalWidth] = '\n';
-    formattedText[totalWidth + 1] = '\0';
-
-    // Line with text
-    strcat(formattedText, "*");
-    for (int i = 0; i < paddingLeft; i++) strcat(formattedText, " ");
-    strcat(formattedText, text);
-    for (int i = 0; i < paddingRight; i++) strcat(formattedText, " ");
-    strcat(formattedText, "*\n");
-
-    // Bottom border
-    memset(formattedText + strlen(formattedText), '*', totalWidth);
-    formattedText[strlen(formattedText) + totalWidth] = '\n';
-    formattedText[strlen(formattedText) + totalWidth + 1] = '\0';
-
-    return formattedText;
-}
 
 // Function to handle admin client interactions
 void admin_client(int client_socket) {
@@ -345,44 +307,4 @@ int login_client(int client_socket) {
         member_client(client_socket); // Call the member_client function
     }
     return END_CONN;
-}
-
-// Main function to create a client socket, connect to server, and handle user choices
-int main() {
-    int client_socket;
-    struct sockaddr_in server_address;
-
-    client_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_socket < 0) {
-        perror("Socket creation error");
-        return -1;
-    }
-
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(PORT);
-    server_address.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-    if (connect(client_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
-        perror("Connection error");
-        return -1;
-    }
-
-    char choice[2];
-    char buffer[MAX_BUFFSIZE];
-
-    recv(client_socket, buffer, MAX_BUFFSIZE, 0); // Receive initial server message
-    printf("%s", buffer);
-    scanf("%s", choice);
-    send(client_socket, choice, strlen(choice), 0);
-
-    if (strcmp(choice, "1") == 0) {
-        registerAccount_client(client_socket); // Handle account registration
-    } else if (strcmp(choice, "2") == 0) {
-        login_client(client_socket); // Handle login
-    } else {
-        printf("Invalid choice.\n");
-    }
-
-    close(client_socket); // Close the socket
-    return 0;
 }

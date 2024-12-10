@@ -8,9 +8,21 @@
 #include <netinet/in.h>
 #include <time.h>
 #include <fcntl.h>
-#include "auth.h"
 #include <time.h>
 #include <asm-generic/socket.h>
+
+void lock_file(int fd, short type) { // to get lock
+    struct flock lock;
+    memset(&lock, 0, sizeof(lock));
+    lock.l_type = type;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0; // Lock the whole file
+    fcntl(fd, F_SETLKW, &lock);
+}
+// NOTE: record locking possible but useful only when DB entries are index i.e. a sseparate .ndx file
+
+
 
 void format_time(time_t rawtime, char *buffer, size_t buffer_size) {
     struct tm *timeinfo = localtime(&rawtime);
@@ -18,6 +30,7 @@ void format_time(time_t rawtime, char *buffer, size_t buffer_size) {
 }
 
 char* formatHeading(char *text) {
+
     int textLength = strlen(text);
     int totalWidth = 52;
     int paddingLeft = (totalWidth - textLength - 2) / 2; // Padding for left side (2 extra for asterisks)

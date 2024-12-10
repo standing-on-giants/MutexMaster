@@ -8,24 +8,81 @@
 #include <netinet/in.h>
 #include <time.h>
 #include <fcntl.h>
-#include "auth.h"
+#include "../auth.h"
+#include "ser.h"
 #include <time.h>
 #include <asm-generic/socket.h>
 
-#define PORT 8080
-#define MAX_CONNECTIONS 5
+int mock_channel_1[2]; // client to server write
+int mock_channel_0[2]; // server to client write
 
-void lock_file(int fd, short type) { // to get lock
-    struct flock lock;
-    memset(&lock, 0, sizeof(lock));
-    lock.l_type = type;
-    lock.l_whence = SEEK_SET;
-    lock.l_start = 0;
-    lock.l_len = 0; // Lock the whole file
-    fcntl(fd, F_SETLKW, &lock);
+ssize_t my_recv(int sockfd, void *buf, size_t len, int flags);
+ssize_t my_send(int sockfd, const void *buf, size_t len, int flags);
+/*
+ sockfd = 1 --> client in focus. client writes, client reads
+ sockfd = 1 --> server in focus. server writes, server reads
+
+ my_send(sockfd =0,...) ---> server writes to client
+ my_recv(sock_fd=0,...) ---> server reads from client
+*/
+
+void activate_mock_channel(){
+    pipe(mock_channel_0);
+    pipe(mock_channel_1);
 }
-// NOTE: record locking possible but useful only when DB entries are index i.e. a sseparate .ndx file
 
+ssize_t my_send(int sockfd, const void *buf, size_t len, int flags) {
+    // Write to the pipe
+    ssize_t bytes_written = write((sockfd==0)?mock_channel_0[1]:mock_channel_1[1], buf, len);
+    if (bytes_written == -1) {
+        perror("Write to pipe failed");
+        return -1;
+    }
+    //printf("Custom send called: %s\n", (char *)buf);
+    return bytes_written;
+}
+
+ssize_t my_recv(int sockfd, void *buf, size_t len, int flags) {
+    // Read from the pipe
+    ssize_t bytes_read = read((sockfd==1)?mock_channel_0[0]:mock_channel_1[0], buf, len);
+    if (bytes_read == -1) {
+        perror("Read from pipe failed");
+        return -1;
+    }
+    //printf("Custom recv called\n");
+    return bytes_read;
+}
+
+void deactivate_mock_channel(){
+    close(mock_channel_0[0]);
+    close(mock_channel_0[1]);
+    close(mock_channel_1[0]);
+    close(mock_channel_1[1]);
+
+}
+
+void handle_connection(int client_socket, struct sockaddr_in *address) {
+    /*char usrnm[MAX_USERNAME_LENGTH];
+    char passwd[MAX_PASSWORD_LENGTH];
+    enum AccountType type;*/
+    struct Account account;
+
+    int r = entry(client_socket);
+
+    if (r == END_CONN) {
+        printf("Bad input.\n");
+        goto end_conn;;
+    } else if (r == TO_REGISTER) {
+        registerAccount(client_socket);
+    } else {
+        r= login(client_socket, &account);
+        if(r==TO_ADMIN) admin(client_socket, &account);
+        else if(r==TO_MEMBER) member(client_socket, &account);
+    }
+
+    end_conn: close(client_socket);
+    printf("Client %s:%d exits.\n", inet_ntoa((*address).sin_addr), ntohs((*address).sin_port));
+}
 
 
 
@@ -48,42 +105,42 @@ void admin(int client_socket, struct Account *acc) {
 
         switch (choice) {
             case 1:
-                seeAllBooks(client_socket);
+                seeAllBooks(client_socket, 0);
                 break;
 
             case 2:
-                seeAllocations(client_socket);
+                seeAllocations(client_socket, 0);
                 break;
 
             case 3:
-                addBook(client_socket);
+                addBook(client_socket, 0);
                 break;
 
             case 4:
-                updateBookCopies(client_socket);
+                updateBookCopies(client_socket, 0);
                 break;
 
             case 5:
-                deleteBook(client_socket); 
+                deleteBook(client_socket, 0); 
 
                 break;
 
             case 6:
-                allocateBook(client_socket);
+                allocateBook(client_socket, 0);
 
                 break;
 
             case 7:
-                deallocateBook(client_socket);
+                deallocateBook(client_socket, 0);
                 break;
 
             case 8:
-                seeAllocationsForUser(client_socket);
+                seeAllocationsForUser(client_socket, 0);
 
                 break;
 
             case 9:
-                viewAllUsers(client_socket);
+                viewAllUsers(client_socket, 0);
                 break;
 
             case 10:
@@ -117,11 +174,11 @@ void member(int client_socket, struct Account *acc) {
 
         switch (choice) {
             case 1:
-                viewBooksInLibrary(client_socket);
+                viewBooksInLibrary(client_socket, 0);
                 break;
 
             case 2:
-                viewCurrentIssues(client_socket, acc);
+                viewCurrentIssues(client_socket, acc, 0);
                 break;
 
             case 3:
@@ -300,82 +357,4 @@ int entry(int client_socket) {
         printf("Invalid choice.\n");
         return END_CONN;
     }
-}
-
-void handle_connection(int client_socket, struct sockaddr_in *address) {
-    /*char usrnm[MAX_USERNAME_LENGTH];
-    char passwd[MAX_PASSWORD_LENGTH];
-    enum AccountType type;*/
-    struct Account account;
-
-    int r = entry(client_socket);
-
-    if (r == END_CONN) {
-        printf("Bad input.\n");
-        goto end_conn;;
-    } else if (r == TO_REGISTER) {
-        registerAccount(client_socket);
-    } else {
-        r= login(client_socket, &account);
-        if(r==TO_ADMIN) admin(client_socket, &account);
-        else if(r==TO_MEMBER) member(client_socket, &account);
-    }
-
-    end_conn: close(client_socket);
-    printf("Client %s:%d exits.\n", inet_ntoa((*address).sin_addr), ntohs((*address).sin_port));
-}
-
-int main() {
-    int server_fd, new_socket;
-    struct sockaddr_in address;
-    int addrlen = sizeof(address);
-
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
-    }
-
-    int opt = 1;
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-        perror("setsockopt");
-        exit(EXIT_FAILURE);
-    }
-
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
-
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if (listen(server_fd, MAX_CONNECTIONS) < 0) {
-        perror("listen");
-        exit(EXIT_FAILURE);
-    }
-    printf("Server running at 127.0.0.1:%d...\n", PORT);
-
-    while (1) {
-        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
-            perror("accept");
-            exit(EXIT_FAILURE);
-        }
-
-        printf("Connection accepted from %s:%d\n", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-
-        int pid = fork();
-        if (pid == 0) {
-            close(server_fd);
-            handle_connection(new_socket, &address);
-            exit(0);
-        } else if (pid > 0) {
-            close(new_socket);
-        } else {
-            perror("fork");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    return 0;
 }

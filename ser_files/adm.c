@@ -8,20 +8,35 @@
 #include <netinet/in.h>
 #include <time.h>
 #include <fcntl.h>
-#include "auth.h"
+#include "../auth.h"
+#include "ser.h"
 #include <time.h>
 #include <asm-generic/socket.h>
 #define MAX_BUFFSIZE 1024
+#define TESTING_MODE 0
+
+
+#if TESTING_MODE
+    #define send my_send
+    #define recv my_recv
+#endif // BASICALLY A MOCKING OF THE ACTUAL send()/recv() OF SOCKET PROGRAMMING. THIS OVERRIDES send() AND recv() DEFINED BY STD LIBRARY.
 
 
 
-void seeAllBooks(int client_socket) {
+
+void seeAllBooks(int client_socket, int testing_mode) {
     char buffer[MAX_BUFFSIZE] = {0};
     FILE *bookFile;
     int fd;
     struct Book book;
 
-    bookFile = fopen(booksCol, "rb+");
+      // Open the correct file based on testing mode
+    if (testing_mode) {
+        // Open a temporary or mock test book file for testing
+        bookFile = fopen(test_booksCol, "rb+"); // Temporary test file
+    } else {
+        bookFile = fopen(booksCol, "rb+");  // Regular file
+    }
     if (bookFile == NULL) {
         send(client_socket, "Error opening book file.\n", MAX_BUFFSIZE, 0);
         return;
@@ -45,13 +60,20 @@ void seeAllBooks(int client_socket) {
     send(client_socket, buffer, MAX_BUFFSIZE, 0);
 }
 
-void seeAllocations(int client_socket) {
+void seeAllocations(int client_socket, int testing_mode) {
     char buffer[MAX_BUFFSIZE] = {0};
     FILE *allocFile;
     int fd;
     struct Allocation allocation;
 
-    allocFile = fopen(allocList, "rb+");
+       // Open the correct file based on testing mode
+    if (testing_mode) {
+        // Open a temporary or mock test allocation file for testing
+        allocFile = fopen(test_allocList, "rb+");  // Temporary test file
+    } else {
+        allocFile = fopen(allocList, "rb+");  // Regular file
+    }
+
     if (allocFile == NULL) {
         send(client_socket, "Error opening allocation file.\n", MAX_BUFFSIZE, 0);
         return;
@@ -77,7 +99,7 @@ void seeAllocations(int client_socket) {
     send(client_socket, buffer, MAX_BUFFSIZE, 0);
 }
 
-void addBook(int client_socket) {
+void addBook(int client_socket, int testing_mode) {
     struct Book book;
     char buffer[MAX_BUFFSIZE] = {0};
     FILE *bookFile;
@@ -94,7 +116,14 @@ void addBook(int client_socket) {
 
     book.delete = 0;
 
-    bookFile = fopen(booksCol, "rb+");
+    if (testing_mode) {
+        // Open a temporary or mock test book file for testing
+        bookFile = fopen(test_booksCol, "rb+"); // Temporary test file
+       
+    } else {
+        bookFile = fopen(booksCol, "rb+");  // Regular file
+    }
+
     if (bookFile == NULL) {
         send(client_socket, "Error opening book file.\n", MAX_BUFFSIZE, 0);
         return;
@@ -121,9 +150,10 @@ void addBook(int client_socket) {
     fclose(bookFile);
 
     send(client_socket, "Book added successfully.\n", MAX_BUFFSIZE, 0);
+    return;
 }
 
-void updateBookCopies(int client_socket) {
+void updateBookCopies(int client_socket, int testing_mode) {
     char class_id[4] = {0};
     int new_copies;
     struct Book book;
@@ -137,7 +167,13 @@ void updateBookCopies(int client_socket) {
     send(client_socket, "Enter the new number of copies: ", MAX_BUFFSIZE, 0);
     recv(client_socket, &new_copies, sizeof(new_copies), 0);
 
-    bookFile = fopen(booksCol, "rb+");
+    if (testing_mode) {
+        // Open a temporary or mock test book file for testing
+        bookFile = fopen(test_booksCol, "rb+"); // Temporary test file
+    } else {
+        bookFile = fopen(booksCol, "rb+");  // Regular file
+    }
+
     if (bookFile == NULL) {
         send(client_socket, "Error opening book file.\n", MAX_BUFFSIZE, 0);
         return;
@@ -169,7 +205,7 @@ void updateBookCopies(int client_socket) {
 }
 
 
-void deleteBook(int client_socket) {
+void deleteBook(int client_socket, int testing_mode) {
     char class_id[4] = {0};
     struct Book book;
     FILE *bookFile;
@@ -179,7 +215,13 @@ void deleteBook(int client_socket) {
     send(client_socket, "Enter class ID of the book to delete: ", MAX_BUFFSIZE, 0);
     recv(client_socket, class_id, sizeof(class_id), 0);
 
-    bookFile = fopen(booksCol, "rb+");
+    if (testing_mode) {
+        // Open a temporary or mock test book file for testing
+        bookFile = fopen(test_booksCol, "rb+"); // Temporary test file
+    } else {
+        bookFile = fopen(booksCol, "rb+");  // Regular file
+    }
+
     if (bookFile == NULL) {
         send(client_socket, "Error opening book file.\n", MAX_BUFFSIZE, 0);
         return;
@@ -210,7 +252,7 @@ void deleteBook(int client_socket) {
     }
 }
 
-void allocateBook(int client_socket) {
+void allocateBook(int client_socket, int testing_mode) {
     char member_username[MAX_USERNAME_LENGTH];
     char book_class_id[4];
     int duration_days;
@@ -233,7 +275,7 @@ void allocateBook(int client_socket) {
     recv(client_socket, &duration_days, sizeof(duration_days), 0);
 
     // Open the members file to check if the user exists
-    FILE *membersFile = fopen(memAccs, "rb");
+    FILE *membersFile = (testing_mode)?fopen(test_memAccs, "rb"):fopen(memAccs, "rb");
     if (membersFile == NULL) {
         send(client_socket, "Error opening members file.\n", MAX_BUFFSIZE, 0);
         return;
@@ -255,7 +297,7 @@ void allocateBook(int client_socket) {
     }
 
     // Open the books file to check if the book is available
-    bookFile = fopen(booksCol, "rb+");
+    bookFile = (testing_mode)?fopen(test_booksCol, "rb+"):fopen(booksCol, "rb+");
     if (bookFile == NULL) {
         send(client_socket, "Error opening books file.\n", MAX_BUFFSIZE, 0);
         return;
@@ -292,7 +334,7 @@ void allocateBook(int client_socket) {
     }
 
     // Proceed to add allocation record
-    allocFile = fopen(allocList, "rb+");
+    allocFile = (testing_mode)?fopen(test_allocList, "rb+"):fopen(allocList, "rb+");
     if (allocFile == NULL) {
         send(client_socket, "Error opening allocation file.\n", MAX_BUFFSIZE, 0);
         return;
@@ -339,7 +381,7 @@ void allocateBook(int client_socket) {
 }
 
 
-void deallocateBook(int client_socket) {
+void deallocateBook(int client_socket, int testing_mode) {
     char member_username[MAX_USERNAME_LENGTH];
     char book_class_id[4];
     struct Allocation allocation;
@@ -353,7 +395,7 @@ void deallocateBook(int client_socket) {
     send(client_socket, "Enter book class ID: ", MAX_BUFFSIZE, 0);
     recv(client_socket, book_class_id, sizeof(book_class_id), 0);
 
-    allocFile = fopen(allocList, "rb+");
+    allocFile = (testing_mode)?fopen(test_allocList, "rb+"):fopen(allocList, "rb+");
     if (allocFile == NULL) {
         send(client_socket, "Error opening allocation file.\n", MAX_BUFFSIZE, 0);
         return;
@@ -383,7 +425,7 @@ void deallocateBook(int client_socket) {
     }
 
     // Increment book copies
-    bookFile = fopen(booksCol, "rb+");
+    bookFile = (testing_mode)?fopen(test_booksCol, "rb+"):fopen(booksCol, "rb+");
     if (bookFile == NULL) {
         send(client_socket, "Error opening book file.\n", MAX_BUFFSIZE, 0);
         return;
@@ -415,7 +457,7 @@ void deallocateBook(int client_socket) {
     }
 }
 
-void seeAllocationsForUser(int client_socket) {
+void seeAllocationsForUser(int client_socket, int testing_mode) {
     //  struct Account *acc;
     char buffer[MAX_BUFFSIZE] = {0};
     char username[MAX_USERNAME_LENGTH];
@@ -423,7 +465,7 @@ void seeAllocationsForUser(int client_socket) {
     send(client_socket, "Enter the username: ", MAX_BUFFSIZE, 0);
     recv(client_socket, username, sizeof(username), 0);
 
-    FILE *allocFile = fopen(allocList, "rb+");
+    FILE *allocFile = (testing_mode)?fopen(test_allocList, "rb+"):fopen(allocList, "rb+");
     if (allocFile == NULL) {
         send(client_socket, "Error opening allocation file.\n", MAX_BUFFSIZE, 0);
         return;
@@ -450,9 +492,9 @@ void seeAllocationsForUser(int client_socket) {
     send(client_socket, buffer, MAX_BUFFSIZE, 0);
 }
 
-void viewAllUsers(int client_socket) {
+void viewAllUsers(int client_socket, int testing_mode) {
     char buffer[MAX_BUFFSIZE] = {0};
-    FILE *memFile = fopen(memAccs, "rb+");
+    FILE *memFile = (testing_mode)?fopen(test_memAccs, "rb+"):fopen(memAccs, "rb+");
     if (memFile == NULL) {
         send(client_socket, "Error opening member file.\n", MAX_BUFFSIZE, 0);
         return;
@@ -475,8 +517,9 @@ void viewAllUsers(int client_socket) {
 
     lock_file(fd, F_UNLCK); // Release lock
     fclose(memFile);
-
     send(client_socket, buffer, MAX_BUFFSIZE, 0);
+    printf("Gondwana\n");
+
 }
 
 

@@ -5,6 +5,12 @@
 #define admAccs "db_files/adminAccounts.bin"
 #define booksCol "db_files/booksCollection.bin"
 #define allocList "db_files/allocationsList.bin"
+
+#define test_memAccs "test_db_files/test_memAccounts.bin"
+#define test_admAccs "test_db_files/test_adminAccounts.bin"
+#define test_booksCol "test_db_files/test_booksCollection.bin"
+#define test_allocList "test_db_files/test_allocationsList.bin"
+
 #define MAX_BUFFSIZE 1024
 #define MAX_USERNAME_LENGTH 50
 #define MAX_PASSWORD_LENGTH 50
@@ -50,22 +56,22 @@ struct Allocation{
 
 char* formatHeading(char *text);
 void format_time(time_t rawtime, char *buffer, size_t buffer_size);
+void lock_file(int fd, short type);
+// // Function prototypes for the cases for member
+// void viewBooksInLibrary(int client_socket);
+// void viewCurrentIssues(int client_socket, struct Account *acc);
+// void exitMemberPanel(int client_socket);
 
-// Function prototypes for the cases for member
-void viewBooksInLibrary(int client_socket);
-void viewCurrentIssues(int client_socket, struct Account *acc);
-void exitMemberPanel(int client_socket);
-
-// Function prototypes for the cases for admin
-void seeAllBooks(int client_socket);
-void seeAllocations(int client_socket);
-void addBook(int client_socket);
-void updateBookCopies(int client_socket);
-void deleteBook(int client_socket); 
-void allocateBook(int client_socket);
-void deallocateBook(int client_socket);
-void seeAllocationsForUser(int client_socket);
-void viewAllUsers(int client_socket);
-void exitAdminPanel(int client_socket);
+// // Function prototypes for the cases for admin
+// void seeAllBooks(int client_socket);
+// void seeAllocations(int client_socket);
+// void addBook(int client_socket);
+// void updateBookCopies(int client_socket);
+// void deleteBook(int client_socket); 
+// void allocateBook(int client_socket);
+// void deallocateBook(int client_socket);
+// void seeAllocationsForUser(int client_socket);
+// void viewAllUsers(int client_socket);
+// void exitAdminPanel(int client_socket);
 
 #endif

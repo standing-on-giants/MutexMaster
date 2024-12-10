@@ -8,63 +8,35 @@
 #include <netinet/in.h>
 #include <time.h>
 #include <fcntl.h>
-#include "auth.h"
+#include "../auth.h"
+#include "ser.h"
 #include <time.h>
 #include <asm-generic/socket.h>
+
+
 #define MAX_BUFFSIZE 1024
 
+#define TESTING_MODE 0
 
-// Function prototypes for the cases
-// void viewBooksInLibrary(int client_socket);
-// void viewCurrentIssues(int client_socket, struct Account *acc);
-// void exitMemberPanel(int client_socket);
+#if TESTING_MODE
+    #define send my_send
+    #define recv my_recv
+#endif // BASICALLY A MOCKING OF THE ACTUAL send()/recv() OF SOCKET PROGRAMMING
 
-// void member(int client_socket, struct Account *acc) {
-//     // Member operations
-//     char buffer[MAX_BUFFSIZE] = {0};
-//     char x[100];
-//     sprintf(x, "Welcome member \"%s\"", acc->username);
-//     strcpy(buffer, formatHeading(x));
-//     strcat(buffer, "\n\n1. View books in library.\n2. View current issues (allocations).\n3. Exit\n");
-//     send(client_socket, buffer, MAX_BUFFSIZE, 0);
 
-//     while (1) {
-//         memset(buffer, '\0', sizeof(buffer));
-//         send(client_socket, "\nEnter choice: ", MAX_BUFFSIZE, 0);
 
-//         int choice;
-//         recv(client_socket, &choice, sizeof(choice), 0);
-
-//         switch (choice) {
-//             case 1:
-//                 viewBooksInLibrary(client_socket);
-//                 break;
-
-//             case 2:
-//                 viewCurrentIssues(client_socket, acc);
-//                 break;
-
-//             case 3:
-//                 exitMemberPanel(client_socket);
-//                 return;
-
-//             default:
-//                 send(client_socket, "Invalid choice.\n", strlen("Invalid choice.\n"), 0);
-//                 break;
-//         }
-//     }
-// }
-
-void viewBooksInLibrary(int client_socket) {
+void viewBooksInLibrary(int client_socket, int testing_mode) {
     char buffer[MAX_BUFFSIZE] = {0};
     FILE *bookFile;
     int fd;
     struct Book book;
 
-    bookFile = fopen(booksCol, "rb+");
-    if (bookFile == NULL) {
-        send(client_socket, "Error opening book file.\n", strlen("Error opening book file.\n"), 0);
-        return;
+  // Open the correct file based on testing mode
+    if (testing_mode) {
+        // Open a temporary or mock test file
+        bookFile = fopen(test_booksCol, "wb+"); // Temporary test file
+    } else {
+        bookFile = fopen(booksCol, "rb+");  // Regular file
     }
 
     fd = fileno(bookFile);
@@ -85,17 +57,25 @@ void viewBooksInLibrary(int client_socket) {
     send(client_socket, buffer, MAX_BUFFSIZE, 0);
 }
 
-void viewCurrentIssues(int client_socket, struct Account *acc) {
+void viewCurrentIssues(int client_socket, struct Account *acc, int testing_mode) {
     char buffer[MAX_BUFFSIZE] = {0};
     FILE *allocFile;
     int fd;
     struct Allocation allocation;
 
-    allocFile = fopen(allocList, "rb+");
+     // Open the correct file based on testing mode
+    if (testing_mode) {
+        // Open a temporary or mock test allocation file
+        allocFile = fopen(test_allocList, "wb+");  // Temporary test file
+    } else {
+        allocFile = fopen(allocList, "rb+");  // Regular file
+    }
+
     if (allocFile == NULL) {
         send(client_socket, "Error opening allocation file.\n", strlen("Error opening allocation file.\n"), 0);
         return;
     }
+
 
     fd = fileno(allocFile);
     lock_file(fd, F_RDLCK); // Acquire read lock
