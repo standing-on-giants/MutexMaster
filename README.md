@@ -57,4 +57,9 @@ This creates an executable ```test``` that tests some functions common to both s
 5. To delete all test executables
 ```
 make cleant
-``` 
+```
+## Team
+Jinesh Pagaria (IMT2022044)
+Aditya Saraf(IMT2022067)
+R Lakshman (IMT2022090)
+Shashank Devarmani (IMT2022107)
