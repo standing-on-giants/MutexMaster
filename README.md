@@ -61,7 +61,7 @@ make cleant
 
 ## Team
 
-Shashank Devarmani
-Jinesh Pagaria
+Shashank Devarmani  
+Jinesh Pagaria  
 Aditya Saraf  
-R Lakshman
+R Lakshman  
