@@ -58,8 +58,10 @@ This creates an executable ```test``` that tests some functions common to both s
 ```
 make cleant
 ```
+
 ## Team
-Shashank Devarmani (IMT2022107)
-Jinesh Pagaria (IMT2022044)
-Aditya Saraf(IMT2022067)
+
+Shashank Devarmani (IMT2022107)  
+Jinesh Pagaria (IMT2022044)  
+Aditya Saraf (IMT2022067)  
 R Lakshman (IMT2022090)
