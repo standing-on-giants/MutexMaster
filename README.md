@@ -1,6 +1,6 @@
-# LMS - Library Management System
+# MultiCore: 
 
-LMS is a mini project made as a part of the Software Engineering Lab Course.
+MultiCore is a distributed client-server architecture based management system initially made to help organisations like libraries
 
 ## Context
 
