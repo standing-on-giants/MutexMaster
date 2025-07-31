@@ -1,4 +1,4 @@
-# MultiCore: 
+# MultiCore: Multi-threaded concurrent server based system
 
 MultiCore is a distributed client-server architecture based management system initially made to help organisations like libraries
 
